@@ -1,33 +1,41 @@
+<div align="center">
+
 # FinTrack
 
-FinTrack is an offline-first desktop personal finance manager built with Python, PySide6, and SQLite. It helps you track accounts and transactions, plan monthly budgets, review spending insights, manage savings goals and recurring payments, import bank statements, and export reports—all while keeping your data on your computer.
+### Your finances. Your device. Your data.
 
-> [!IMPORTANT]
-> FinTrack is a personal project, not an audited banking product. Its local database and backups are not encrypted. Do not store bank credentials in the app, and protect any imported financial data appropriately.
+An offline-first desktop finance manager for tracking accounts, spending, budgets, goals, and recurring payments without sending financial data to the cloud.
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PySide6](https://img.shields.io/badge/UI-PySide6-41CD52?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/)
+[![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Tests](https://img.shields.io/badge/tests-14%20passing-brightgreen)](#testing)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- Track multiple accounts, balances, income, expenses, and same-currency transfers
-- Categorize transactions and search transaction history
-- Import CSV and XLSX bank statements with column mapping and a review step
-- Set monthly category budgets and compare them with actual spending
-- View monthly summaries, spending breakdowns, and cash-flow trends
-- Track savings goals and recurring payments
-- Export monthly reports to PDF and XLSX, or transactions to CSV
-- Switch between light and dark themes
-- Back up the local SQLite database and verify its integrity
-- Load demonstration data for a quick tour
+</div>
 
-## Requirements
+## Why FinTrack?
 
-- Python 3.10 or newer (Python 3.11–3.13 recommended)
-- Windows, macOS, or Linux with GUI support
+FinTrack brings everyday money management into one clean desktop application. It works entirely offline, stores data locally, and gives you practical tools for understanding where your money goes without requiring an account, subscription, or bank connection.
+
+## Highlights
+
+| Area | Capabilities |
+| --- | --- |
+| Accounts | Multiple accounts, opening balances, archiving, and same-currency transfers |
+| Transactions | Income and expense tracking, categories, notes, editing, search, and filtering |
+| Imports | CSV/XLSX statement import, flexible column mapping, preview, and duplicate detection |
+| Planning | Monthly category budgets, savings goals, and recurring payments |
+| Insights | Monthly cash flow, category spending, trends, and recurring merchant detection |
+| Reports | Monthly PDF/XLSX reports and CSV transaction exports |
+| Experience | Light/dark themes, calendar-based month selection, and demo data |
+| Data safety | Local SQLite storage, backups, and database integrity checks |
 
 ## Quick start
 
 ### Windows
 
-The easiest option is to double-click `RUN_WINDOWS.bat`. To set up the app manually in PowerShell:
+Double-click `RUN_WINDOWS.bat`, or run the setup manually in PowerShell:
 
 ```powershell
 py -3 -m venv .venv
@@ -36,9 +44,9 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-### macOS or Linux
+### macOS
 
-On macOS, you can run `./RUN_MACOS.sh`. To set up the app manually:
+Run `./RUN_MACOS.sh`, or use the manual setup below:
 
 ```bash
 python3 -m venv .venv
@@ -47,66 +55,116 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-## First steps
+### Linux
 
-1. Add an account from **Accounts**.
-2. Record income or expenses under **Transactions**, or import a CSV/XLSX statement.
-3. Assign categories so dashboards, budgets, and insights are accurate.
-4. Set category limits in **Budgets** and review the monthly overview.
-5. Export a report from **Reports**, or create a database backup in **Settings**.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python main.py
+```
 
-To explore without entering your own data, choose **Settings → Load demo data** before creating an account.
+FinTrack requires Python 3.10 or newer. Python 3.11 through 3.13 is recommended.
 
-## Statement imports
+## Getting started
 
-FinTrack supports `.csv` and `.xlsx` files. During import, select an account and map the file's date, description, amount (or debit and credit), and optional reference columns. Always verify the preview before confirming an import.
+1. Open **Accounts** and create your first account.
+2. Add entries under **Transactions**, or import a CSV/XLSX bank statement.
+3. Categorize transactions so reports and spending insights remain accurate.
+4. Set monthly category limits under **Budgets**.
+5. Use **Goals** and **Recurring** to plan ahead.
+6. Export reports or create a database backup from **Settings**.
 
-Supported date formats include ISO (`YYYY-MM-DD`) and common slash/dash formats. Ambiguous slash-formatted dates are treated as day-first. PDF and OCR imports are not currently supported.
+Want to explore first? Select **Settings > Load demo data** before creating an account.
 
-## Data and privacy
+## Importing statements
 
-- Data is stored locally in a SQLite database in the operating system's application-data folder.
-- Monetary values are stored as integer hundredths to avoid floating-point rounding errors.
-- FinTrack makes no network calls and does not connect directly to banks.
-- Accounts and reports are currency-specific; the app does not perform currency conversion.
-- Transfers currently require accounts with the same currency.
-- Database files, backups, and exported reports are not encrypted.
+FinTrack accepts `.csv` and `.xlsx` statements. The import workflow lets you:
 
-## Development
+- Select the destination account
+- Map date, description, amount, debit, credit, and reference columns
+- Review converted transactions before saving them
+- Skip duplicates when the same statement rows are imported again
 
-Install the dependencies, including pytest, from `requirements.txt`, then run:
+Supported dates include ISO (`YYYY-MM-DD`) and common slash, dash, and dot formats. Ambiguous slash-formatted dates default to day-first, so always review the preview before confirming.
+
+> PDF statements, OCR, and direct bank connections are not currently supported.
+
+## How data is handled
+
+FinTrack makes no network calls and does not connect to a bank. The application database is stored in the standard application-data location for your operating system:
+
+| Platform | Default location |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\FinTrack\fintrack.db` |
+| macOS | `~/Library/Application Support/FinTrack/fintrack.db` |
+| Linux | `~/.local/share/FinTrack/fintrack.db` |
+
+Money is stored as integer hundredths rather than floating-point values. Reports are currency-specific, and FinTrack never silently combines or converts currencies.
+
+> [!WARNING]
+> FinTrack is a personal project, not an audited financial or banking product. The SQLite database, backups, and exported reports are not encrypted. Never store online-banking credentials in FinTrack, and protect files containing personal financial information.
+
+## Testing
+
+Install the dependencies from `requirements.txt`, then run:
 
 ```bash
 python -m pytest -q
 python -m compileall -q fintrack main.py
 ```
 
-Project structure:
+The current test suite contains 14 automated tests covering core finance operations, imports, reports, budgets, goals, recurring transactions, insights, and database migration behavior.
+
+## Project structure
 
 ```text
 FinTrack/
-├── fintrack/
-│   ├── db.py          # SQLite persistence and finance operations
-│   ├── importer.py    # CSV/XLSX statement parsing
-│   ├── reports.py     # PDF/XLSX report generation
-│   ├── theme.py       # Light and dark themes
-│   └── ui.py          # PySide6 desktop interface
-├── samples/           # Example bank statement
-├── tests/             # Automated tests
-├── main.py            # Application entry point
-└── requirements.txt
+|-- fintrack/
+|   |-- db.py          # SQLite persistence and finance operations
+|   |-- importer.py    # CSV/XLSX parsing and validation
+|   |-- reports.py     # PDF/XLSX report generation
+|   |-- theme.py       # Light and dark application themes
+|   `-- ui.py          # PySide6 desktop interface
+|-- samples/           # Example bank statement
+|-- tests/             # Automated test suite
+|-- main.py            # Application entry point
+|-- pyproject.toml     # Project metadata
+`-- requirements.txt   # Runtime and test dependencies
 ```
+
+## Current limitations
+
+- Cross-currency conversion and transfers are not supported.
+- Database files and backups are not encrypted.
+- Statement importing supports CSV/XLSX only.
+- Duplicate detection is based on imported row data and source details; renamed or reordered statements should be reviewed carefully.
+- Full credit-card liability accounting, reconciliation, transaction splits, and investment tracking are not yet implemented.
+
+## Roadmap
+
+- Encrypted local storage and optional application lock
+- Rules for automatic merchant categorization
+- Transaction splitting and account reconciliation
+- Persisted exchange rates and cross-currency transfers
+- Reusable bank import templates
+- Improved accessibility and advanced filtering
+- Signed desktop installers for Windows and macOS
 
 ## Packaging
 
-Install `pyside6-deploy` in the active virtual environment and run:
+To create a distributable application, install `pyside6-deploy` in the active environment and run:
 
 ```bash
 pyside6-deploy main.py
 ```
 
-Build and test packages on each target operating system. Public distribution may also require code signing and, on macOS, notarization.
+Builds should be created and tested on each target operating system. Public releases may require code signing and, on macOS, notarization.
+
+## Contributing
+
+Contributions are welcome. Fork the repository, create a focused branch, add or update tests where appropriate, and open a pull request describing the change.
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+FinTrack is available under the [MIT License](LICENSE).
