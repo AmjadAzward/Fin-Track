@@ -6,7 +6,7 @@ import sys
 from datetime import date
 from pathlib import Path
 from PySide6.QtCore import Qt,QDate,QRectF,Signal
-from PySide6.QtGui import QColor,QPainter,QPen,QFont
+from PySide6.QtGui import QColor,QPainter,QPen,QFont,QKeySequence,QShortcut
 from PySide6.QtWidgets import (QMainWindow,QWidget,QFrame,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,
  QStackedWidget,QTableWidget,QTableWidgetItem,QHeaderView,QLineEdit,QComboBox,QDateEdit,QDoubleSpinBox,QCalendarWidget,
  QMessageBox,QDialog,QDialogButtonBox,QFormLayout,QFileDialog,QProgressBar,QScrollArea,QCheckBox,QSpinBox)
@@ -18,6 +18,7 @@ from .theme import DARK,LIGHT
 
 def text(s,objectname=None):
     label=QLabel(str(s))
+    label.setWordWrap(True)
     if objectname:label.setObjectName(objectname)
     return label
 
@@ -34,6 +35,9 @@ def table(headers):
     w.setAlternatingRowColors(True);w.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
     w.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
     w.verticalHeader().setVisible(False);w.setSortingEnabled(False)
+    w.verticalHeader().setDefaultSectionSize(42)
+    w.setShowGrid(False);w.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    w.setAccessibleName('Data table')
     return w
 
 def put(w,row,values,identifier=None):
@@ -44,14 +48,18 @@ def put(w,row,values,identifier=None):
         w.setItem(row,c,item)
 
 def dialog(parent,title):
-    d=QDialog(parent);d.setWindowTitle(title);d.setMinimumWidth(440)
-    box=QVBoxLayout(d);box.setSpacing(14)
-    form=QFormLayout();form.setSpacing(12);box.addLayout(form)
+    d=QDialog(parent);d.setWindowTitle(title);d.setMinimumWidth(460);d.setModal(True)
+    box=QVBoxLayout(d);box.setContentsMargins(24,22,24,22);box.setSpacing(18)
+    box.addWidget(text(title,'sectionTitle'))
+    form=QFormLayout();form.setSpacing(13);form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft);form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow);box.addLayout(form)
     return d,box,form
 
 def finish(d,box):
     actions=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-    actions.accepted.connect(d.accept);actions.rejected.connect(d.reject);box.addWidget(actions)
+    actions.accepted.connect(d.accept);actions.rejected.connect(d.reject)
+    ok=actions.button(QDialogButtonBox.StandardButton.Ok)
+    if ok:ok.setObjectName('primary');ok.setText('Save')
+    box.addWidget(actions)
 
 def money_edit(value=0):
     field=QDoubleSpinBox();field.setRange(0,100000000000);field.setDecimals(2);field.setValue(value);field.setGroupSeparatorShown(True)
@@ -68,14 +76,14 @@ class MonthPicker(QWidget):
         super().__init__(parent)
         self._month=month
         row=QHBoxLayout(self);row.setContentsMargins(0,0,0,0);row.setSpacing(5)
-        self.previous=btn('‹',self.go_previous)
+        self.previous=btn('<',self.go_previous)
         self.previous.setToolTip('Previous month')
         self.previous.setAccessibleName('Previous month')
         self.choose=btn('')
         self.choose.setToolTip('Choose month and year')
         self.choose.setAccessibleName('Choose month and year')
         self.choose.clicked.connect(self.choose_month)
-        self.next=btn('›',self.go_next)
+        self.next=btn('>',self.go_next)
         self.next.setToolTip('Next month')
         self.next.setAccessibleName('Next month')
         for b in (self.previous,self.next):b.setFixedWidth(36)
@@ -88,7 +96,7 @@ class MonthPicker(QWidget):
         month=parsed.strftime('%Y-%m')
         changed=month!=self._month
         self._month=month
-        self.choose.setText(f'▦  {calendar.month_name[parsed.month]} {parsed.year}  ▾')
+        self.choose.setText(f'{calendar.month_name[parsed.month]} {parsed.year}')
         if changed and emit:self.monthChanged.emit(month)
 
     def shift(self,delta):
@@ -108,7 +116,7 @@ class MonthPicker(QWidget):
         yr,mo=map(int,self._month.split('-'))
         year_label=QLabel()
         yearrow=QHBoxLayout()
-        year_prev=btn('‹');year_next=btn('›')
+        year_prev=btn('<');year_next=btn('>')
         yearrow.addWidget(year_prev);yearrow.addStretch();yearrow.addWidget(year_label);yearrow.addStretch();yearrow.addWidget(year_next)
         layout.addLayout(yearrow)
         grid=QGridLayout();grid.setSpacing(7);layout.addLayout(grid)
@@ -162,24 +170,31 @@ class Bars(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self,db):
         super().__init__();self.db=db;self.month=date.today().strftime('%Y-%m');self.currency='LKR'
-        self.setWindowTitle('FinTrack 5.0 — Personal Finance Manager');self.resize(1380,850);self.setMinimumSize(1080,680)
-        self.theme=self.db.setting('theme','dark');self.build();self.apply_theme();self.refresh()
+        self.setWindowTitle('FinTrack - Personal Finance Manager');self.resize(1380,850);self.setMinimumSize(1024,680)
+        self.theme=self.db.setting('theme','dark');self.build();self.apply_theme();self.refresh();self.setup_shortcuts()
 
     def build(self):
         base=QWidget();self.setCentralWidget(base);outer=QHBoxLayout(base);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
-        side=QFrame();side.setObjectName('sidebar');side.setFixedWidth(242);s=QVBoxLayout(side);s.setContentsMargins(19,27,19,20);s.setSpacing(9)
-        s.addWidget(text('◈ FinTrack','brand'));s.addWidget(text('YOUR MONEY, CLEARLY','subheading'));s.addSpacing(14)
+        side=QFrame();side.setObjectName('sidebar');side.setFixedWidth(236);s=QVBoxLayout(side);s.setContentsMargins(16,25,16,18);s.setSpacing(7)
+        s.addWidget(text('FinTrack','brand'));s.addWidget(text('YOUR MONEY, CLEARLY','eyebrow'));s.addSpacing(16)
         self.nav=[]; names=['Overview','Accounts','Transactions','Import Statements','Budgets','Reports','Insights','Goals','Recurring','Settings']
-        icons=['◫','▣','↔','⇩','◎','▤','◉','◇','↻','⚙']
+        icons=['01','02','03','04','05','06','07','08','09','10']
         self.stack=QStackedWidget()
         for i,(name,icon) in enumerate(zip(names,icons)):
-            b=btn(f'  {icon}   {name}',lambda _,ix=i:self.go(ix));b.setObjectName('nav');b.setCheckable(True);s.addWidget(b);self.nav.append(b)
+            b=btn(f'{icon}   {name}',lambda _,ix=i:self.go(ix));b.setObjectName('nav');b.setCheckable(True);b.setToolTip(f'Open {name}');s.addWidget(b);self.nav.append(b)
             self.stack.addWidget(self.make_page(i,name))
-        s.addStretch();s.addWidget(text('LOCAL • OFFLINE', 'subheading'))
+        s.addStretch();s.addWidget(text('PRIVATE BY DEFAULT','eyebrow'));s.addWidget(text('Local and offline  |  v1.0','subheading'))
         outer.addWidget(side);outer.addWidget(self.stack,1);self.go(0)
+        self.statusBar().showMessage('Ready  |  Data stays on this device')
+
+    def setup_shortcuts(self):
+        shortcuts=[('Ctrl+1',lambda:self.go(0)),('Ctrl+2',lambda:self.go(1)),('Ctrl+3',lambda:self.go(2)),('Ctrl+N',self.add_transaction),('Ctrl+I',self.import_file),('Ctrl+F',lambda:(self.go(2),self.search.setFocus())),('Ctrl+,',lambda:self.go(9))]
+        self.shortcuts=[]
+        for keys,callback in shortcuts:
+            shortcut=QShortcut(QKeySequence(keys),self);shortcut.activated.connect(callback);self.shortcuts.append(shortcut)
 
     def make_page(self,index,name):
-        page=QWidget();root=QVBoxLayout(page);root.setContentsMargins(32,26,32,25);root.setSpacing(16)
+        page=QWidget();root=QVBoxLayout(page);root.setContentsMargins(30,25,30,24);root.setSpacing(16)
         top=QHBoxLayout();headers=['Financial overview','Your accounts','All transactions','Import bank statements','Monthly budgets','Reports & exports','Spending insights','Savings goals','Recurring payments','Preferences']
         heading=QVBoxLayout();heading.addWidget(text(headers[index],'heading'))
         sub=['Everything at a glance','Manage balances across your accounts','Search, review and manage your activity','CSV and Excel with a safe preview','Give every category a spending limit','Turn your transactions into useful summaries','Understand where your money goes','Plan for your financial milestones','Manage scheduled transactions','Make FinTrack work your way']
@@ -187,7 +202,7 @@ class MainWindow(QMainWindow):
         if index in (0,2,4,5,6):
             picker=MonthPicker(self.month)
             picker.monthChanged.connect(self.update_month)
-            top.addWidget(text('Month'));top.addWidget(picker)
+            top.addWidget(text('REPORTING PERIOD','eyebrow'));top.addWidget(picker)
             if not hasattr(self,'month_inputs'):self.month_inputs=[]
             self.month_inputs.append(picker)
         root.addLayout(top)
@@ -209,12 +224,12 @@ class MainWindow(QMainWindow):
     def build_dashboard(self,root):
         metrics=QGridLayout();metrics.setSpacing(15);self.metrics=[]
         for i,name in enumerate(['Total balances','Income','Expenses','Net cash flow']):
-            card=self.frame();l=QVBoxLayout(card);l.setContentsMargins(20,16,20,17);l.addWidget(text(name,'cardTitle'))
-            value=text('—','cardValue');l.addWidget(value);self.metrics.append(value);metrics.addWidget(card,0,i)
+            card=QFrame();card.setObjectName('metricCard');l=QVBoxLayout(card);l.setContentsMargins(20,17,20,18);l.setSpacing(7);l.addWidget(text(name.upper(),'cardTitle'))
+            value=text('--','cardValue');l.addWidget(value);l.addWidget(text(['Across active accounts','This reporting month','This reporting month','Income minus expenses'][i],'metricHint'));self.metrics.append(value);metrics.addWidget(card,0,i)
         root.addLayout(metrics)
         row=QHBoxLayout();row.setSpacing(16)
         trend=self.frame();tl=QVBoxLayout(trend);tl.setContentsMargins(22,18,22,18)
-        tl.addWidget(text('Cash flow trend  •  Income / Expenses','cardTitle'));self.chart=Bars();tl.addWidget(self.chart);row.addWidget(trend,2)
+        tl.addWidget(text('CASH FLOW - INCOME VS EXPENSES','cardTitle'));self.chart=Bars();tl.addWidget(self.chart);row.addWidget(trend,2)
         breakdown=self.frame();bl=QVBoxLayout(breakdown);bl.setContentsMargins(22,18,22,18);bl.addWidget(text('Top spending categories','cardTitle'))
         self.category_box=QVBoxLayout();bl.addLayout(self.category_box);bl.addStretch();row.addWidget(breakdown,1)
         root.addLayout(row,2)
@@ -222,20 +237,21 @@ class MainWindow(QMainWindow):
         self.recent=table(['Date','Account','Description','Category','Amount']);cl.addWidget(self.recent);root.addWidget(card,2)
 
     def build_accounts(self,root):
-        actions=QHBoxLayout();actions.addWidget(btn('+ Add account',self.add_account,True));actions.addWidget(btn('⇄ Transfer money',self.make_transfer));actions.addStretch();root.addLayout(actions)
+        actions=QHBoxLayout();actions.addWidget(btn('+ Add account',self.add_account,True));actions.addWidget(btn('Transfer money',self.make_transfer));actions.addStretch();root.addLayout(actions)
         self.account_table=table(['Account','Type','Currency','Opening balance','Current balance']);root.addWidget(self.account_table)
         row=QHBoxLayout();row.addWidget(btn('Archive selected account',self.archive_account));row.addStretch();root.addLayout(row)
 
     def build_transactions(self,root):
         actions=QHBoxLayout();actions.addWidget(btn('+ Add transaction',self.add_transaction,True));actions.addWidget(btn('Edit selected',self.edit_transaction));actions.addWidget(btn('Delete selected',self.delete_transaction));actions.addWidget(btn('Change category',self.change_category));actions.addStretch()
-        self.search=QLineEdit();self.search.setPlaceholderText('Search descriptions or notes...');self.search.setMaximumWidth(270);self.search.textChanged.connect(self.refresh_transactions);actions.addWidget(self.search);root.addLayout(actions)
+        self.search=QLineEdit();self.search.setPlaceholderText('Search transactions...');self.search.setClearButtonEnabled(True);self.search.setMaximumWidth(290);self.search.setAccessibleName('Search transactions');self.search.textChanged.connect(self.refresh_transactions);actions.addWidget(self.search);root.addLayout(actions)
         self.tx_table=table(['Date','Account','Description','Category','Amount','Type / Note']);root.addWidget(self.tx_table)
+        self.tx_table.doubleClicked.connect(self.edit_transaction)
 
     def build_import(self,root):
         card=self.frame();l=QVBoxLayout(card);l.setSpacing(15)
         l.addWidget(text('Import your statement','heading'))
         l.addWidget(text('Choose a CSV or XLSX file, map the columns and review every entry before importing.','subheading'))
-        l.addWidget(btn('Browse statement file',self.import_file,True));l.addWidget(text('Supported: CSV, XLSX  •  Date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY and more','subheading'))
+        browse=btn('Choose CSV or Excel file',self.import_file,True);browse.setMinimumHeight(42);l.addWidget(browse);l.addWidget(text('Supported: CSV, XLSX  |  Dates: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY and more','subheading'))
         root.addWidget(card);root.addWidget(text('Recent imports','cardTitle'));self.history=table(['Date','File','Imported','Skipped']);root.addWidget(self.history)
 
     def build_budgets(self,root):
@@ -265,7 +281,7 @@ class MainWindow(QMainWindow):
     def refresh_insights(self):
         data=self.db.analytics(self.month,self.currency)
         rate='N/A (no recorded income)' if data['savings_rate'] is None else f"{data['savings_rate']}%"
-        self.insight_summary.setText(f"Savings rate: {rate}    •    Uncategorized transactions: {data['uncategorized']}    •    Overspent categories: {len(data['over_budget'])}")
+        self.insight_summary.setText(f"Savings rate: {rate}    |    Uncategorized: {data['uncategorized']}    |    Over budget: {len(data['over_budget'])}")
         self.merchant_table.setRowCount(0)
         for r in data['merchants']:
             put(self.merchant_table,self.merchant_table.rowCount(),[r['description'],r['count'],money(r['cents'],self.currency)])
@@ -282,7 +298,7 @@ class MainWindow(QMainWindow):
         self.goal_table.setRowCount(0)
         for g in self.db.goals(self.currency):
             pct=round(g['saved_cents']/g['target_cents']*100,1)
-            put(self.goal_table,self.goal_table.rowCount(),[g['name'],money(g['target_cents'],g['currency']),money(g['saved_cents'],g['currency']),money(max(0,g['target_cents']-g['saved_cents']),g['currency']),f'{pct}%',g['deadline'] or '—'],g['id'])
+            put(self.goal_table,self.goal_table.rowCount(),[g['name'],money(g['target_cents'],g['currency']),money(g['saved_cents'],g['currency']),money(max(0,g['target_cents']-g['saved_cents']),g['currency']),f'{pct}%',g['deadline'] or '--'],g['id'])
 
     def add_goal(self):
         d,layout,form=dialog(self,'Create savings goal');name=QLineEdit();target=money_edit();deadline=date_edit();use_deadline=QCheckBox('Set deadline')
@@ -349,6 +365,7 @@ class MainWindow(QMainWindow):
     def go(self,index):
         self.stack.setCurrentIndex(index)
         for i,b in enumerate(self.nav):b.setChecked(i==index)
+        self.statusBar().showMessage(f'{self.nav[index].text().strip()}  |  {self.currency}  |  {calendar.month_name[int(self.month[5:])]} {self.month[:4]}')
         if hasattr(self,'db'):self.refresh()
 
     def update_month(self,month):
@@ -365,7 +382,7 @@ class MainWindow(QMainWindow):
     def refresh(self):
         self.refresh_dashboard();self.refresh_accounts();self.refresh_transactions();self.refresh_budgets();self.refresh_history();self.refresh_insights();self.refresh_goals();self.refresh_recurring()
         summ=self.db.monthly_summary(self.month,self.currency)
-        self.report_summary.setText(f"Income: {money(summ['income'],self.currency)}   |   Expenses: {money(summ['expenses'],self.currency)}   |   Net: {money(summ['income']-summ['expenses'],self.currency)}")
+        self.report_summary.setText(f"Income  {money(summ['income'],self.currency)}     |     Expenses  {money(summ['expenses'],self.currency)}     |     Net  {money(summ['income']-summ['expenses'],self.currency)}")
 
     def refresh_dashboard(self):
         accounts=[a for a in self.db.accounts() if a['currency']==self.currency]
@@ -383,7 +400,7 @@ class MainWindow(QMainWindow):
         spending=self.db.category_spending(self.month,self.currency)
         maximum=max([r['cents'] for r in spending]+[1])
         for r in spending[:6]:
-            self.category_box.addWidget(text(f"{r['name']}   ·   {money(r['cents'],self.currency)}"))
+            self.category_box.addWidget(text(f"{r['name']}   |   {money(r['cents'],self.currency)}"))
             progress=QProgressBar();progress.setTextVisible(False);progress.setValue(int(r['cents']/maximum*100));self.category_box.addWidget(progress)
         if not spending:self.category_box.addWidget(text('No spending records yet'))
         self.recent.setRowCount(0)
@@ -413,10 +430,12 @@ class MainWindow(QMainWindow):
         rows=w.selectionModel().selectedRows()
         return w.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole) if rows else None
 
-    def error(self,msg):QMessageBox.warning(self,'FinTrack',str(msg))
-    def info(self,msg):QMessageBox.information(self,'FinTrack',str(msg))
+    def error(self,msg):
+        self.statusBar().showMessage(f'Action needed: {msg}',5000);QMessageBox.warning(self,'FinTrack',str(msg))
+    def info(self,msg):
+        self.statusBar().showMessage(str(msg),5000);QMessageBox.information(self,'FinTrack',str(msg))
     def run(self,callback):
-        try:callback();self.refresh()
+        try:callback();self.refresh();self.statusBar().showMessage('Changes saved',3000)
         except Exception as e:self.error(e)
 
     def add_account(self):
@@ -512,7 +531,7 @@ class MainWindow(QMainWindow):
         acc=QComboBox()
         for a in accounts:acc.addItem(f"{a['name']} ({a['currency']})",a['id'])
         form.addRow('Import into account',acc)
-        hdr=rows[0];choices=['— Not mapped —']+[f'{i+1}. {str(h)[:42]}' for i,h in enumerate(hdr)]
+        hdr=rows[0];choices=['-- Not mapped --']+[f'{i+1}. {str(h)[:42]}' for i,h in enumerate(hdr)]
         fields={}
         for field in ['date','description','amount','debit','credit','reference']:
             combo=QComboBox();combo.addItems(choices)
