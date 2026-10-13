@@ -1,0 +1,6 @@
+Date,Description,Debit,Credit,Reference
+2026-10-01,Monthly salary,,180000.00,PAY01
+2026-10-03,Supermarket,8500.00,,EXP01
+2026-10-05,Fuel station,6000.00,,EXP02
+2026-10-07,Electricity bill,4500.00,,EXP03
+2026-10-09,Restaurant,3200.00,,EXP04
